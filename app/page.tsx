@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useCrossmintAuth, useWallet } from "@crossmint/client-sdk-react-ui";
+import { Balance } from "@/components/Balance";
 import { SendForm } from "@/components/SendForm";
 
 export default function Home() {
   const { status: authStatus, login, logout, jwt } = useCrossmintAuth();
   const { wallet, status: walletStatus } = useWallet();
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const isLoggedIn = !!jwt || authStatus === "logged-in";
 
@@ -49,7 +52,12 @@ export default function Home() {
             <span className="address">{wallet.address}</span>
           </div>
 
-          <SendForm wallet={wallet} />
+          <Balance wallet={wallet} refreshNonce={refreshNonce} />
+
+          <SendForm
+            wallet={wallet}
+            onSent={() => setRefreshNonce((n) => n + 1)}
+          />
         </>
       )}
     </main>

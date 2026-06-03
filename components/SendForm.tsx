@@ -22,7 +22,13 @@ type SendState =
 // On Stellar, Crossmint focuses on USDC; XLM is the native asset.
 const TOKENS = ["usdc", "xlm"] as const;
 
-export function SendForm({ wallet }: { wallet: Wallet }) {
+export function SendForm({
+  wallet,
+  onSent,
+}: {
+  wallet: Wallet;
+  onSent?: () => void;
+}) {
   const [recipient, setRecipient] = useState("");
   const [token, setToken] = useState<string>(TOKENS[0]);
   const [amount, setAmount] = useState("");
@@ -47,6 +53,7 @@ export function SendForm({ wallet }: { wallet: Wallet }) {
       setState({ kind: "success", explorerLink });
       setRecipient("");
       setAmount("");
+      onSent?.();
     } catch (err) {
       setState({
         kind: "error",
