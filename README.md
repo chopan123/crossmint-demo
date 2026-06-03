@@ -1,8 +1,8 @@
-# Stellar Wallet — Send
+# crossmint-demo
 
-A minimal web app that creates a non-custodial **Crossmint** wallet on **Stellar**
-and exposes a single feature: **sending tokens**. Built with Next.js (App Router)
-and the Crossmint React SDK.
+**Stellar Wallet — Send.** A minimal web app that creates a non-custodial
+**Crossmint** wallet on **Stellar** and exposes a single feature: **sending
+tokens**. Built with Next.js (App Router) and the Crossmint React SDK.
 
 Based on the [Crossmint Wallets docs](https://docs.crossmint.com/wallets/overview).
 
