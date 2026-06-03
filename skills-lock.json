@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "crossmint-knowledge": {
+      "source": "crossmint/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/crossmint/SKILL.md",
+      "computedHash": "8135a6720b6a6dcbcc8a489581616d5c72abc8f43570a0a47da25e684c424ae3"
+    }
+  }
+}
