@@ -404,25 +404,3 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 ```
-
-## Verify before shipping
-
-Two things this guide asserts from the DeFindex API skill docs and the installed
-SDK — confirm both against your live setup, since the skill docs only show the
-`G…` happy path:
-
-1. A deposit/withdraw POST with a `C…` `caller` really returns
-   `{ xdr: null, isSmartWallet: true, functionName, params, ... }`, and that your
-   explicit `args` keys match the vault's method signature — a mismatch surfaces
-   as `Argument '<name>' is required for function '<method>'` at submit time.
-2. `StellarWallet.from(wallet).sendTransaction({ contractId, method, args })`
-   exists in your installed `@crossmint/wallets-sdk` (verified here against
-   `1.5.0`, re-exported by `@crossmint/client-sdk-react-ui@^4.2.8`) — the
-   `StellarTransactionInput` type accepts this `{ contractId, method, args }`
-   variant alongside `{ transaction, contractId }`.
-
-## Next steps
-
-This guide is prose + snippets. Wiring it into the UI — a deposit form, live
-position + APY display, and a withdraw flow — is **Phase 2** (see
-[`specs/roadmap.md`](../../specs/roadmap.md)).
