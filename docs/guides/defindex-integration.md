@@ -267,42 +267,57 @@ difference is we hand `sendTransaction` a reconstructed contract call
 
 ## 5. Withdraw
 
-Withdraw is symmetric. Withdraw **by asset amount**:
+Withdraw is symmetric, with one difference: **the vault contract withdraws by
+shares, not by asset amount.** Its signature is
+`withdraw(withdraw_shares: i128, min_amounts_out: Vec<i128>, from: Address)`. The
+`POST /vault/{VAULT}/withdraw` (by amount) endpoint just converts the amount to
+shares via simulation — so the natural reconstruction path is
+`POST /vault/{VAULT}/withdraw-shares`, burning the `dfTokens` from step 3
+directly.
+
+### 5a. Server
 
 ```ts
-// app/api/defindex/withdraw/route.ts
+// app/api/defindex/withdraw-shares/route.ts
 import { defindexFetch, VAULT } from "@/lib/defindex";
 
 export async function POST(req: Request) {
-  const { caller, amountStroops } = await req.json();
-  const data = await defindexFetch(`/vault/${VAULT}/withdraw`, {
+  const { caller, shares } = await req.json();
+  const data = await defindexFetch(`/vault/${VAULT}/withdraw-shares`, {
     method: "POST",
     body: JSON.stringify({
-      amounts: [Number(amountStroops)],
+      shares: Number(shares), // vault shares (dfTokens) to burn
       caller,
-      slippageBps: 50,
+      // slippageBps (default 0) omitted — API defaults it.
     }),
   });
   // Same smart-wallet shape: { xdr: null, functionName, params, isSmartWallet: true, ... }
-  const { functionName, params } = data;
-  return Response.json({ functionName, params });
+  const { functionName } = data;
+  return Response.json({ functionName });
 }
 ```
 
-Reconstruct and submit it with the same client step as the deposit —
-`StellarWallet.from(wallet).sendTransaction({ contractId: VAULT, method: functionName, args })`
-— but build `args` against `withdraw`'s signature (`amounts_desired`,
-`amounts_min`, `from`) instead of `deposit`'s.
+### 5b. Client
 
-**Withdraw by shares instead of amount** — use `POST /vault/{VAULT}/withdraw-shares`
-with a `shares` count (the `dfTokens` from step 3) rather than `amounts`:
+Reconstruct with the same client step as the deposit, but build `args` against
+`withdraw`'s signature. `withdraw_shares` is a single `i128` (not a `Vec`), and
+`min_amounts_out` is a per-asset `Vec` — `[0]` means no minimum (0 slippage
+floor), matching the API default:
 
-```jsonc
-// body for /vault/{VAULT}/withdraw-shares
-{ "shares": 1000000, "caller": "C...", "slippageBps": 50 }
+```tsx
+const { functionName } = await res.json(); // from /api/defindex/withdraw-shares
+
+const stellar = StellarWallet.from(wallet);
+const tx = await stellar.sendTransaction({
+  contractId: VAULT,
+  method: functionName,        // "withdraw"
+  args: {
+    withdraw_shares: shares,    // the dfTokens from step 3
+    min_amounts_out: [0],       // no minimum out
+    from: wallet.address,       // the C… caller
+  },
+});
 ```
-
-Everything after (returned `operationXDR`, client `sendTransaction`) is identical.
 
 ## Errors
 

@@ -16,9 +16,11 @@ const USDC_DECIMALS = 10_000_000;
 export function VaultPosition({
   wallet,
   refreshNonce = 0,
+  onBalance,
 }: {
   wallet: Wallet;
   refreshNonce?: number;
+  onBalance?: (dfTokens: string) => void;
 }) {
   const [balance, setBalance] = useState<VaultBalance | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,9 @@ export function VaultPosition({
         `/api/defindex/balance?from=${encodeURIComponent(wallet.address)}`
       );
       if (!res.ok) throw new Error("Couldn't load vault position.");
-      setBalance(await res.json());
+      const data: VaultBalance = await res.json();
+      setBalance(data);
+      onBalance?.(data.dfTokens);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Couldn't load vault position."
@@ -40,7 +44,7 @@ export function VaultPosition({
     } finally {
       setLoading(false);
     }
-  }, [wallet.address]);
+  }, [wallet.address, onBalance]);
 
   useEffect(() => {
     load();
