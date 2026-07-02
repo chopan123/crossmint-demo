@@ -13,12 +13,16 @@ You can follow it top to bottom and reproduce every call.
 
 ## Before you start
 
-You need two things this guide treats as **given**:
+You need three things this guide treats as **given**:
 
-1. **A DeFindex API key** (`sk_…`). Generating one is a one-time
+1. **A working Crossmint React app with a Stellar wallet.** Complete the
+   [Crossmint React quickstart](https://docs.crossmint.com/wallets/quickstarts/react)
+   with `chain: "stellar"` so login creates a `C…` smart wallet exposed via
+   `useWallet()`. Everything below builds on that app.
+2. **A DeFindex API key** (`sk_…`). Generating one is a one-time
    register → login → create-key flow that is out of scope here — see the
    `defindex-api` skill's `auth.md`. Arrive with the key already in hand.
-2. **A target vault address**. Discovery (`GET /vault/discover`) is also out of
+3. **A target vault address**. Discovery (`GET /vault/discover`) is also out of
    scope — this guide uses one fixed mainnet USDC vault. Swap in your own address
    the same way.
 
