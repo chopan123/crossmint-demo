@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useCrossmintAuth, useWallet } from "@crossmint/client-sdk-react-ui";
 import { Balance } from "@/components/Balance";
 import { SendForm } from "@/components/SendForm";
+import { VaultApy } from "@/components/VaultApy";
 
 export default function Home() {
   const { status: authStatus, login, logout, jwt } = useCrossmintAuth();
@@ -53,6 +54,8 @@ export default function Home() {
           </div>
 
           <Balance wallet={wallet} refreshNonce={refreshNonce} />
+
+          <VaultApy />
 
           <SendForm
             wallet={wallet}

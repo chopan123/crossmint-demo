@@ -10,10 +10,16 @@ code or dependencies. Task groups are independently draftable.
 1.2 Confirm the fixed worked-example constants: vault
     `CA2FIPJ7U6BG3N7EOZFI74XPJZOEOD4TYWXFVCIO5VDCHTVAGS6F4UKK`, USDC SAC
     `CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75`, 7 decimals.
-1.3 Determine the exact Crossmint Stellar XDR-signing method available in
-    `@crossmint/client-sdk-react-ui@^4.2.8` (inspect the installed package
-    and/or Crossmint wallets docs). Record the concrete method used in the guide;
-    if none exists for raw XDR, document the supported path and flag it.
+1.3 Confirm the **smart-wallet caller branch** against the live API: POST a
+    deposit with `caller` = a `C…` address and verify the response is
+    `{ xdr: null, operationXDR, isSmartWallet: true }` (this branch is NOT in the
+    `defindex-api` skill docs — treat the live API as source of truth).
+1.4 Submission method — RESOLVED (verified in installed packages):
+    `StellarWallet.from(wallet).sendTransaction({ transaction: operationXDR,
+    contractId: VAULT })`. `StellarWallet` is re-exported by
+    `@crossmint/client-sdk-react-ui@^4.2.8` from `@crossmint/wallets-sdk@1.5.0`;
+    `sendTransaction` accepts the `{ transaction, contractId }` variant. `POST
+    /send` is NOT used on the smart-wallet path. Re-verify at build time.
 
 ## 2. Guide scaffold
 
@@ -42,22 +48,24 @@ code or dependencies. Task groups are independently draftable.
 
 ## 5. Deposit → sign → send section
 
-5.1 Deposit: `POST /vault/{VAULT}/deposit` snippet returning unsigned `xdr`;
+5.1 Deposit: `POST /vault/{VAULT}/deposit` with `caller: <C-address>` snippet;
     stress `amounts: [Number(amountStroops)]` (integer stroops, not strings) and
-    `invest` / `slippageBps` fields.
-5.2 Signing bridge: show how the Crossmint Stellar wallet from `useWallet()`
-    signs the unsigned XDR (using the method confirmed in 1.3), returning a
-    signed base64 XDR envelope.
-5.3 Submit: `POST /send?network=mainnet` snippet; read
-    `json.txHash ?? json.hash ?? json.id`; build a Stellar explorer link like
-    `components/SendForm.tsx` does.
-5.4 Provide the end-to-end deposit→sign→send snippet as one copy-paste block.
+    `invest` / `slippageBps` fields. Show the smart-wallet response shape
+    `{ xdr: null, operationXDR, isSmartWallet: true }` and explain WHY `xdr` is
+    null (a `C…` address can't be a Stellar tx source).
+5.2 Submit via smart wallet: `StellarWallet.from(wallet).sendTransaction({
+    transaction: operationXDR, contractId: VAULT })` (method from 1.4). Read the
+    resulting hash and build a Stellar explorer link like `components/SendForm.tsx`
+    does. Note explicitly that `POST /send` is NOT used on this path (it's for
+    pre-signed `G…`-source XDRs).
+5.3 Provide the end-to-end deposit→sendTransaction snippet as one copy-paste block.
 
 ## 6. Withdraw section
 
-6.1 `POST /vault/{VAULT}/withdraw` (by asset amount) → sign → send snippet.
+6.1 `POST /vault/{VAULT}/withdraw` (by asset amount) with `caller: <C-address>`
+    → same smart-wallet wrap-&-submit path (also returns `operationXDR`).
 6.2 Note on `POST /vault/{VAULT}/withdraw-shares` (burn dfTokens) with its body
-    shape; same sign→send path.
+    shape; same smart-wallet path.
 
 ## 7. Reference & wrap-up
 
