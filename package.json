@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "env:staging": "cp .env.staging .env",
+    "env:mainnet": "cp .env.production .env"
   },
   "dependencies": {
     "@crossmint/client-sdk-react-ui": "^4.2.8",
