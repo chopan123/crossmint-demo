@@ -5,6 +5,7 @@ import { useCrossmintAuth, useWallet } from "@crossmint/client-sdk-react-ui";
 import { Balance } from "@/components/Balance";
 import { SendForm } from "@/components/SendForm";
 import { VaultApy } from "@/components/VaultApy";
+import { VaultDeposit } from "@/components/VaultDeposit";
 import { VaultPosition } from "@/components/VaultPosition";
 
 export default function Home() {
@@ -59,6 +60,11 @@ export default function Home() {
           <VaultApy />
 
           <VaultPosition wallet={wallet} refreshNonce={refreshNonce} />
+
+          <VaultDeposit
+            wallet={wallet}
+            onDeposited={() => setRefreshNonce((n) => n + 1)}
+          />
 
           <SendForm
             wallet={wallet}

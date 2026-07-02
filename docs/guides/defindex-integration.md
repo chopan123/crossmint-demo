@@ -156,14 +156,20 @@ convert with `Number(...)` before dividing.
 
 This is where the `C…` address matters.
 
-### 4a. Server builds the operation
+### 4a. Server asks DeFindex to build the call
 
 A `C…` address can't be a Stellar transaction *source* (only ed25519 `G…`
 accounts sign and pay fees). So when you POST a deposit with a smart-wallet
 `caller`, DeFindex **cannot** return a ready-to-sign transaction. Instead it
-returns `xdr: null` and hands you the bare contract operation as `operationXDR`,
-flagged with `isSmartWallet: true` (the response also carries `functionName`,
-`simulationResponse`, and `params` for debugging — you only need `operationXDR`):
+returns `xdr: null`, flags the response `isSmartWallet: true`, and describes the
+underlying contract call for you to reconstruct: `functionName` (the vault
+method) plus `params` (its arguments). It also echoes back the raw
+`operationXDR` and a `simulationResponse`.
+
+Rather than submit the opaque `operationXDR`, we forward the **call
+description** to the client and rebuild the invocation there — the Crossmint
+wallet re-simulates and wraps it in its own smart-wallet transaction, so the
+`C…` account never needs to be a source. Return the fields the client needs:
 
 ```ts
 // app/api/defindex/deposit/route.ts
@@ -176,25 +182,32 @@ export async function POST(req: Request) {
     body: JSON.stringify({
       amounts: [Number(amountStroops)], // integer stroops, number[]
       caller,                           // the C… smart wallet address
-      invest: true,
-      slippageBps: 50,                  // 0.5%
+      // invest (default true) and slippageBps (default 0) omitted — API defaults them.
     }),
   });
-  // Smart-wallet response: { xdr: null, operationXDR: "AAAA…", isSmartWallet: true, functionName, simulationResponse, params }
-  return Response.json(data);
+  // Smart-wallet response:
+  // { xdr: null, operationXDR, isSmartWallet: true, functionName, params, simulationResponse }
+  const { functionName, params } = data;
+  return Response.json({ functionName, params });
 }
 ```
 
-> Do **not** try to sign the `null` `xdr`. The thing you submit is
-> `operationXDR`.
+> Do **not** try to sign the `null` `xdr`. You'll reconstruct the call from
+> `functionName` + `params` on the client.
 
-### 4b. Client submits through the Crossmint wallet
+### 4b. Client reconstructs the call and submits it
 
 `@crossmint/client-sdk-react-ui` re-exports `StellarWallet`, whose
-`sendTransaction` accepts a serialized contract operation via the
-`{ transaction, contractId }` variant. It wraps the operation in a smart-wallet
-transaction, signs it, and submits it — so you do **not** call DeFindex's
-`POST /send` on this path (that endpoint is for pre-signed `G…`-source XDRs).
+`sendTransaction` accepts a contract call **by its parts** via the
+`{ contractId, method, args }` variant — not just a pre-serialized envelope. We
+take `functionName` → `method`, and build `args` to match the vault's
+`deposit(amounts_desired, amounts_min, from, invest)` signature. Crossmint
+encodes `args` against the on-chain contract spec, so **the keys must be the
+contract's parameter names** — this is the one part reconstruction gets wrong if
+you blindly spread DeFindex's `params` (they aren't keyed that way). The wallet
+simulates the call, wraps it in a smart-wallet transaction, signs, and submits —
+so you do **not** call DeFindex's `POST /send` on this path (that endpoint is for
+pre-signed `G…`-source XDRs).
 
 ```tsx
 "use client";
@@ -208,19 +221,28 @@ export function useVaultDeposit() {
   return async function deposit(amountStroops: string) {
     if (!wallet) throw new Error("Wallet not ready");
 
-    // 1. Ask the server to build the operation for our C… address.
+    // 1. Ask the server for the contract-call description for our C… address.
     const res = await fetch("/api/defindex/deposit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ caller: wallet.address, amountStroops }),
     });
-    const { operationXDR } = await res.json();
+    const { functionName } = await res.json();
 
-    // 2. Submit it through the smart wallet.
+    // 2. Reconstruct the call with args keyed by the contract's parameter names.
+    //    amounts_min, from and invest are all required contract args (Soroban has
+    //    no optional params) — set amounts_min = amounts_desired for 0 slippage.
+    const desired = Number(amountStroops);
     const stellar = StellarWallet.from(wallet);
     const tx = await stellar.sendTransaction({
-      transaction: operationXDR,
       contractId: VAULT,
+      method: functionName,       // "deposit"
+      args: {
+        amounts_desired: [desired],
+        amounts_min: [desired],   // 0 slippage — matches the API default
+        from: wallet.address,     // the C… caller
+        invest: true,
+      },
     });
 
     return tx; // contains the on-chain hash — build an explorer link like SendForm does
@@ -230,9 +252,18 @@ export function useVaultDeposit() {
 
 This mirrors the `wallet.send(...)` flow in
 [`components/SendForm.tsx`](../../components/SendForm.tsx): loosely-typed wallet,
-one `await`, a transaction result you can turn into an explorer link. The only
-difference is `sendTransaction` (a raw operation) instead of `send` (a token
-transfer).
+one `await`, a transaction result you can turn into an explorer link. The
+difference is we hand `sendTransaction` a reconstructed contract call
+(`method` + `args`) instead of a token transfer.
+
+> **Don't spread DeFindex's `params` into `args`.** The wallet keys `args` by
+> the contract's parameter names (`amounts_desired`, `amounts_min`, `from`,
+> `invest`); DeFindex's `params` aren't keyed that way, so passing them through
+> yields `Argument 'amounts_desired' is required for function 'deposit'`. Build
+> `args` explicitly against the signature, as above. The server call still
+> matters — it runs DeFindex's simulation (balance, invest routing) before you
+> submit. As a fallback, the `{ transaction: operationXDR, contractId }` variant
+> submits the server's XDR verbatim if you'd rather not rebuild the args.
 
 ## 5. Withdraw
 
@@ -252,13 +283,16 @@ export async function POST(req: Request) {
       slippageBps: 50,
     }),
   });
-  // Same smart-wallet shape: { xdr: null, operationXDR, isSmartWallet: true }
-  return Response.json(data);
+  // Same smart-wallet shape: { xdr: null, functionName, params, isSmartWallet: true, ... }
+  const { functionName, params } = data;
+  return Response.json({ functionName, params });
 }
 ```
 
-Submit the returned `operationXDR` with the exact same client step as the
-deposit (`StellarWallet.from(wallet).sendTransaction({ transaction, contractId: VAULT })`).
+Reconstruct and submit it with the same client step as the deposit —
+`StellarWallet.from(wallet).sendTransaction({ contractId: VAULT, method: functionName, args })`
+— but build `args` against `withdraw`'s signature (`amounts_desired`,
+`amounts_min`, `from`) instead of `deposit`'s.
 
 **Withdraw by shares instead of amount** — use `POST /vault/{VAULT}/withdraw-shares`
 with a `shares` count (the `dfTokens` from step 3) rather than `amounts`:
@@ -305,10 +339,14 @@ SDK — confirm both against your live setup, since the skill docs only show the
 `G…` happy path:
 
 1. A deposit/withdraw POST with a `C…` `caller` really returns
-   `{ xdr: null, operationXDR, isSmartWallet: true }`.
-2. `StellarWallet.from(wallet).sendTransaction({ transaction, contractId })`
+   `{ xdr: null, isSmartWallet: true, functionName, params, ... }`, and that your
+   explicit `args` keys match the vault's method signature — a mismatch surfaces
+   as `Argument '<name>' is required for function '<method>'` at submit time.
+2. `StellarWallet.from(wallet).sendTransaction({ contractId, method, args })`
    exists in your installed `@crossmint/wallets-sdk` (verified here against
-   `1.5.0`, re-exported by `@crossmint/client-sdk-react-ui@^4.2.8`).
+   `1.5.0`, re-exported by `@crossmint/client-sdk-react-ui@^4.2.8`) — the
+   `StellarTransactionInput` type accepts this `{ contractId, method, args }`
+   variant alongside `{ transaction, contractId }`.
 
 ## Next steps
 

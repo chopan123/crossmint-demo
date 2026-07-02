@@ -20,4 +20,4 @@ export async function defindexFetch(path: string, init?: RequestInit) {
   return res.json();
 }
 
-export const VAULT = "CA2FIPJ7U6BG3N7EOZFI74XPJZOEOD4TYWXFVCIO5VDCHTVAGS6F4UKK";
+export { VAULT_ADDRESS as VAULT } from "./vault";
