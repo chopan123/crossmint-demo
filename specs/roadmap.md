@@ -13,15 +13,15 @@ items are all unchecked `[ ]`.
 
 ## Phase 1 — DeFindex integration guide
 
-- [ ] Self-contained written guide to integrate the DeFindex REST API
-- [ ] Assume API key and vault address as given (auth flow + discovery out of scope; link out)
-- [ ] Cover core vault flow: deposit, balance, APY, withdraw
-- [ ] Show how a Crossmint Stellar **smart wallet** (`C…` caller) submits vault txns: API returns `xdr: null` + `operationXDR`; submit via `StellarWallet.sendTransaction({ transaction, contractId })` (no `POST /send`)
-- [ ] Runnable code snippets and env/config notes
-- [ ] Guide lives in `docs/guides/` and is reproducible end-to-end
+- [x] Self-contained written guide to integrate the DeFindex REST API
+- [x] Assume API key and vault address as given (auth flow + discovery out of scope; link out)
+- [x] Cover core vault flow: deposit, balance, APY, withdraw
+- [x] Show how a Crossmint Stellar **smart wallet** (`C…` caller) submits vault txns: API returns `xdr: null` + `operationXDR`; submit via `StellarWallet.sendTransaction({ transaction, contractId })` (no `POST /send`)
+- [x] Runnable code snippets and env/config notes
+- [x] Guide lives in `docs/guides/` and is reproducible end-to-end
 
 ## Phase 2 — DeFindex in-app deposit (future)
 
-- [ ] UI to deposit wallet USDC into a DeFindex vault
-- [ ] Show vault position and live APY
-- [ ] Withdraw flow
+- [x] UI to deposit wallet USDC into a DeFindex vault
+- [x] Show vault position and live APY
+- [x] Withdraw flow
