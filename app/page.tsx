@@ -6,14 +6,14 @@ import { Balance } from "@/components/Balance";
 import { SendForm } from "@/components/SendForm";
 import { VaultApy } from "@/components/VaultApy";
 import { VaultDeposit } from "@/components/VaultDeposit";
-import { VaultPosition } from "@/components/VaultPosition";
+import { VaultPosition, type VaultBalance } from "@/components/VaultPosition";
 import { VaultWithdraw } from "@/components/VaultWithdraw";
 
 export default function Home() {
   const { status: authStatus, login, logout, jwt } = useCrossmintAuth();
   const { wallet, status: walletStatus } = useWallet();
   const [refreshNonce, setRefreshNonce] = useState(0);
-  const [vaultShares, setVaultShares] = useState("0");
+  const [vaultBalance, setVaultBalance] = useState<VaultBalance | null>(null);
 
   const isLoggedIn = !!jwt || authStatus === "logged-in";
 
@@ -64,7 +64,7 @@ export default function Home() {
           <VaultPosition
             wallet={wallet}
             refreshNonce={refreshNonce}
-            onBalance={setVaultShares}
+            onBalance={setVaultBalance}
           />
 
           <VaultDeposit
@@ -74,7 +74,7 @@ export default function Home() {
 
           <VaultWithdraw
             wallet={wallet}
-            shares={vaultShares}
+            balance={vaultBalance}
             onWithdrawn={() => setRefreshNonce((n) => n + 1)}
           />
 

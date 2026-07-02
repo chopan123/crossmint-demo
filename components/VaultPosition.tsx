@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-type VaultBalance = {
+export type VaultBalance = {
   dfTokens: string; // vault shares you own
   underlyingBalance: string[]; // current value per underlying asset, in stroops
 };
@@ -20,7 +20,7 @@ export function VaultPosition({
 }: {
   wallet: Wallet;
   refreshNonce?: number;
-  onBalance?: (dfTokens: string) => void;
+  onBalance?: (balance: VaultBalance) => void;
 }) {
   const [balance, setBalance] = useState<VaultBalance | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +36,7 @@ export function VaultPosition({
       if (!res.ok) throw new Error("Couldn't load vault position.");
       const data: VaultBalance = await res.json();
       setBalance(data);
-      onBalance?.(data.dfTokens);
+      onBalance?.(data);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Couldn't load vault position."

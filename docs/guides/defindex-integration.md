@@ -265,59 +265,117 @@ difference is we hand `sendTransaction` a reconstructed contract call
 > submit. As a fallback, the `{ transaction: operationXDR, contractId }` variant
 > submits the server's XDR verbatim if you'd rather not rebuild the args.
 
-## 5. Withdraw
+## 5. Withdraw (denominated in the underlying asset)
 
-Withdraw is symmetric, with one difference: **the vault contract withdraws by
-shares, not by asset amount.** Its signature is
-`withdraw(withdraw_shares: i128, min_amounts_out: Vec<i128>, from: Address)`. The
-`POST /vault/{VAULT}/withdraw` (by amount) endpoint just converts the amount to
-shares via simulation — so the natural reconstruction path is
-`POST /vault/{VAULT}/withdraw-shares`, burning the `dfTokens` from step 3
-directly.
+Users think in USDC, not vault shares — so we let them enter a USDC amount and
+withdraw *that*. There's one wrinkle: **the vault contract withdraws by shares,
+not by asset amount** — its signature is
+`withdraw(withdraw_shares: i128, min_amounts_out: Vec<i128>, from: Address)`. But
+we don't have to compute the shares ourselves: `POST /vault/{VAULT}/withdraw`
+takes the underlying `amounts`, simulates the conversion, and hands back the
+withdraw call's arguments — including the exact shares to burn — in `params`.
+
+For a smart-wallet caller the response looks like:
+
+```jsonc
+{
+  "xdr": null,
+  "functionName": "withdraw",
+  "isSmartWallet": true,
+  "simulationResponse": ["100000"],          // amounts out, in stroops
+  "operationXDR": "AAAA…",
+  // params is the POSITIONAL argument list for the contract call:
+  // [withdraw_shares, min_amounts_out, from]
+  "params": ["107884", ["100000"], "C…"]
+}
+```
+
+Note `params` is a positional array, **not** an object keyed by parameter name
+(the same is true of deposit — which is why you can't just spread it into
+`args`). Here `107884` shares release `100000` stroops (0.01 USDC).
 
 ### 5a. Server
 
+Because the user is withdrawing an underlying amount, we hit
+`POST /vault/{VAULT}/withdraw` with the `amounts` array. DeFindex simulates the
+amount → shares conversion and the strategy unwind; we pull the shares and
+minimums out of `params` positionally:
+
 ```ts
-// app/api/defindex/withdraw-shares/route.ts
+// app/api/defindex/withdraw/route.ts
 import { defindexFetch, VAULT } from "@/lib/defindex";
 
 export async function POST(req: Request) {
-  const { caller, shares } = await req.json();
-  const data = await defindexFetch(`/vault/${VAULT}/withdraw-shares`, {
+  const { caller, amountStroops } = await req.json();
+  const data = await defindexFetch(`/vault/${VAULT}/withdraw`, {
     method: "POST",
     body: JSON.stringify({
-      shares: Number(shares), // vault shares (dfTokens) to burn
+      amounts: [Number(amountStroops)], // underlying amount to withdraw, in stroops
       caller,
       // slippageBps (default 0) omitted — API defaults it.
     }),
   });
-  // Same smart-wallet shape: { xdr: null, functionName, params, isSmartWallet: true, ... }
-  const { functionName } = data;
-  return Response.json({ functionName });
+  // params = [withdraw_shares, min_amounts_out, from] (positional).
+  const { functionName, params } = data;
+  const [withdrawShares, minAmountsOut] = params as [string, string[], string];
+  return Response.json({ functionName, withdrawShares, minAmountsOut });
 }
 ```
 
 ### 5b. Client
 
-Reconstruct with the same client step as the deposit, but build `args` against
-`withdraw`'s signature. `withdraw_shares` is a single `i128` (not a `Vec`), and
-`min_amounts_out` is a per-asset `Vec` — `[0]` means no minimum (0 slippage
-floor), matching the API default:
+Reconstruct the call with the `withdraw_shares` and `min_amounts_out` the server
+pulled from `params` — no client-side share math. `withdraw_shares` is a single
+`i128` (not a `Vec`); `min_amounts_out` is a per-asset `Vec`:
 
 ```tsx
-const { functionName } = await res.json(); // from /api/defindex/withdraw-shares
+"use client";
+import { useWallet, StellarWallet } from "@crossmint/client-sdk-react-ui";
 
-const stellar = StellarWallet.from(wallet);
-const tx = await stellar.sendTransaction({
-  contractId: VAULT,
-  method: functionName,        // "withdraw"
-  args: {
-    withdraw_shares: shares,    // the dfTokens from step 3
-    min_amounts_out: [0],       // no minimum out
-    from: wallet.address,       // the C… caller
-  },
-});
+const VAULT = "CA2FIPJ7U6BG3N7EOZFI74XPJZOEOD4TYWXFVCIO5VDCHTVAGS6F4UKK";
+const USDC_DECIMALS = 10_000_000; // USDC has 7 decimals
+
+export function useVaultWithdraw() {
+  const { wallet } = useWallet();
+
+  return async function withdraw(amountUsdc: string) {
+    if (!wallet) throw new Error("Wallet not ready");
+    const amountStroops = Math.round(Number(amountUsdc) * USDC_DECIMALS);
+
+    // 1. DeFindex simulates the amount → shares conversion for our C… address
+    //    and returns the exact shares to burn.
+    const res = await fetch("/api/defindex/withdraw", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        caller: wallet.address,
+        amountStroops: String(amountStroops),
+      }),
+    });
+    const { functionName, withdrawShares, minAmountsOut } = await res.json();
+
+    // 2. Reconstruct the call against withdraw(withdraw_shares, min_amounts_out, from).
+    const stellar = StellarWallet.from(wallet);
+    const tx = await stellar.sendTransaction({
+      contractId: VAULT,
+      method: functionName,             // "withdraw"
+      args: {
+        withdraw_shares: Number(withdrawShares),
+        min_amounts_out: (minAmountsOut as string[]).map(Number),
+        from: wallet.address,           // the C… caller
+      },
+    });
+
+    return tx;
+  };
+}
 ```
+
+> **`min_amounts_out` comes from DeFindex's simulation at request time.** With
+> the default 0 slippage it equals the amount you asked for, so a price tick
+> between building and submitting can revert the withdrawal. If you see slippage
+> reverts, send a non-zero `slippageBps` on the server call so DeFindex bakes a
+> tolerance into the returned minimums.
 
 ## Errors
 
