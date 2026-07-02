@@ -13,7 +13,12 @@ Docs-only phase; the guide adds no code, but the repo must stay green:
 ## Content assertions
 
 - [ ] `docs/guides/defindex-integration.md` exists.
-- [ ] Covers, in order: APY → balance → deposit → sign → send → withdraw.
+- [ ] Covers, in order: APY → balance → deposit → wrap/sign → submit → withdraw.
+- [ ] States that the caller is a Crossmint **smart wallet** with a `C…` contract
+      address (not a `G…` account), and that this is the only caller path shown.
+- [ ] Deposit/withdraw sections show the smart-wallet response
+      `{ xdr: null, operationXDR, isSmartWallet: true }` and explain why `xdr` is
+      null (a `C…` address can't be a Stellar transaction source).
 - [ ] Lists a DeFindex API key as a **prerequisite** (with a one-line pointer to
       the auth flow) and does NOT walk through register/login/key generation.
 - [ ] Uses the fixed mainnet vault
@@ -25,13 +30,16 @@ Docs-only phase; the guide adds no code, but the repo must stay green:
       user address).
 - [ ] Deposit/withdraw snippets pass `amounts` as `number[]` in stroops
       (`[Number(amountStroops)]`), never strings.
-- [ ] The `POST /send` snippet reads `json.txHash ?? json.hash ?? json.id`.
+- [ ] The guide states `POST /send` is NOT used on the smart-wallet path (it's
+      for pre-signed `G…`-source XDRs); submission goes through the wallet.
 - [ ] Includes the security callout distinguishing the secret `sk_…` DeFindex
       key (server-side only) from the browser-safe `ck_…` Crossmint key.
-- [ ] The Crossmint signing step names a concrete, verified SDK method (from
-      `@crossmint/client-sdk-react-ui@^4.2.8`); if no raw-XDR signing method
-      exists, the guide documents the supported path and flags the gap rather
-      than inventing an API.
+- [ ] The signing step uses `StellarWallet.from(wallet).sendTransaction({
+      transaction: operationXDR, contractId: VAULT })` — the verified method in
+      `@crossmint/wallets-sdk@1.5.0` (re-exported by react-ui `^4.2.8`) — and
+      reads the resulting hash for an explorer link.
+- [ ] The smart-wallet branch was verified against the live API (not just the
+      skill docs, which omit it).
 - [ ] Includes the 429 `retryAfter` back-off snippet and an error-status table.
 
 ## Manual walkthrough
@@ -40,9 +48,11 @@ Docs-only phase; the guide adds no code, but the repo must stay green:
    confirm the `defindexFetch` helper authenticates successfully.
 2. With a logged-in crossmint-demo wallet address, run the APY and balance
    snippets; confirm they return the documented shapes.
-3. Trace the deposit→sign→send flow end-to-end on paper (or with a small real
-   deposit if funds are available) and confirm the signing bridge step actually
-   produces a signed XDR that `POST /send` accepts.
+3. Trace the deposit→sendTransaction flow end-to-end on paper (or with a small
+   real deposit if funds are available): confirm a `C…` caller returns
+   `operationXDR` with `xdr: null`, and that
+   `StellarWallet.from(wallet).sendTransaction({ transaction: operationXDR,
+   contractId: VAULT })` submits the op on-chain and returns a usable hash.
 4. Confirm the guide is reachable from the repo (README link and/or docs index).
 
 ## Tone check
@@ -52,7 +62,8 @@ Docs-only phase; the guide adds no code, but the repo must stay green:
 
 ## Definition of done
 
-The guide lets a developer, starting from a Crossmint Stellar wallet in this
-repo, authenticate to DeFindex, read APY/balance, and deposit into and withdraw
-from the fixed mainnet USDC vault — reproducibly, from the Markdown alone — and
-the repo's typecheck/lint/build remain green.
+The guide lets a developer, starting from a Crossmint Stellar **smart wallet**
+(`C…`) in this repo and a pre-obtained DeFindex API key, read APY/balance and
+deposit into / withdraw from the fixed mainnet USDC vault via the smart-wallet
+`operationXDR` path — reproducibly, from the Markdown alone — and the repo's
+typecheck/lint/build remain green.

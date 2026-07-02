@@ -9,3 +9,6 @@ next-env.d.ts
 .env.production
 .DS_Store
 *.tsbuildinfo
+
+# DeFindex brand guide (not part of the codebase)
+DeFindex - Brand Guide .pdf

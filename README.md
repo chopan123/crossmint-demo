@@ -57,3 +57,9 @@ app/
 components/
   SendForm.tsx    # the send function UI + wallet.send() call
 ```
+
+## Guides
+
+- [DeFindex vault integration](docs/guides/defindex-integration.md) — read APY /
+  balance and deposit into / withdraw from a DeFindex yield vault using the
+  Crossmint Stellar smart wallet.

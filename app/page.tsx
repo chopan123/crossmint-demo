@@ -4,11 +4,16 @@ import { useState } from "react";
 import { useCrossmintAuth, useWallet } from "@crossmint/client-sdk-react-ui";
 import { Balance } from "@/components/Balance";
 import { SendForm } from "@/components/SendForm";
+import { VaultApy } from "@/components/VaultApy";
+import { VaultDeposit } from "@/components/VaultDeposit";
+import { VaultPosition, type VaultBalance } from "@/components/VaultPosition";
+import { VaultWithdraw } from "@/components/VaultWithdraw";
 
 export default function Home() {
   const { status: authStatus, login, logout, jwt } = useCrossmintAuth();
   const { wallet, status: walletStatus } = useWallet();
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [vaultBalance, setVaultBalance] = useState<VaultBalance | null>(null);
 
   const isLoggedIn = !!jwt || authStatus === "logged-in";
 
@@ -53,6 +58,25 @@ export default function Home() {
           </div>
 
           <Balance wallet={wallet} refreshNonce={refreshNonce} />
+
+          <VaultApy />
+
+          <VaultPosition
+            wallet={wallet}
+            refreshNonce={refreshNonce}
+            onBalance={setVaultBalance}
+          />
+
+          <VaultDeposit
+            wallet={wallet}
+            onDeposited={() => setRefreshNonce((n) => n + 1)}
+          />
+
+          <VaultWithdraw
+            wallet={wallet}
+            balance={vaultBalance}
+            onWithdrawn={() => setRefreshNonce((n) => n + 1)}
+          />
 
           <SendForm
             wallet={wallet}
