@@ -1,13 +1,20 @@
 :root {
-  --bg: #0b0d12;
-  --card: #151921;
-  --border: #262c38;
-  --text: #e6e9ef;
-  --muted: #8b93a7;
-  --accent: #6c5ce7;
-  --accent-hover: #5a4bd1;
+  /* DeFindex brand palette */
+  --brand-teal: #014751;
+  --brand-orange: #fc5b31;
+  --brand-lavender: #dec9f4;
+  --brand-green: #d3ffb4;
+  --brand-cyan: #d3fbff;
+
+  --bg: #01191d;
+  --card: #012a30;
+  --border: #0b4650;
+  --text: #eaf9fa;
+  --muted: #7ba7ad;
+  --accent: var(--brand-orange);
+  --accent-hover: #e14a23;
   --danger: #ff6b6b;
-  --ok: #51cf66;
+  --ok: var(--brand-green);
 }
 
 * {
@@ -63,7 +70,7 @@ label {
 
 input,
 select {
-  background: #0e1117;
+  background: #011115;
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 11px 12px;
@@ -121,6 +128,7 @@ button.secondary {
 .balance {
   font-size: 28px;
   font-weight: 700;
+  color: var(--brand-cyan);
 }
 
 .muted {
@@ -140,7 +148,7 @@ button.secondary {
 }
 
 .notice.success {
-  background: rgba(81, 207, 102, 0.12);
+  background: rgba(211, 255, 180, 0.1);
   color: var(--ok);
 }
 
